@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>IPL Mega Auction - Live Board</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="board">
+<header><h1>IPL <span>Mega Auction</span></h1><span class="pill" id="tag"></span></header>
+<main id="stage" class="stage"></main>
+<section id="ribbon" class="ribbon"></section>
+<script src="/socket.io/socket.io.js"></script>
+<script src="common.js"></script>
+<script>
+const stage = document.getElementById('stage');
+
+function render() {
+  const { lot, mode, lastResult, teams, config } = S;
+  document.getElementById('tag').textContent = `${S.players.filter(p => p.status === 'sold').length} sold · ${S.players.filter(p => p.status === 'pending').length} to go`;
+
+  if (mode === 'break') {
+    stage.className = 'stage single';
+    stage.innerHTML = `<div><div class="big-msg" style="color:var(--gold)">Break</div><div class="sub-msg mute">${esc(S.breakMessage)}</div></div>`;
+  } else if (lot.status === 'idle') {
+    stage.className = 'stage single';
+    if (lastResult && lastResult.type === 'sold') {
+      stage.innerHTML = `<div><div class="big-msg sold">SOLD</div>
+        <div class="sub-msg"><b>${esc(lastResult.playerName)}</b> to <b style="color:${lastResult.teamColor}">${esc(lastResult.teamName)}</b></div>
+        <div class="big-msg" style="font-size:5vw;color:var(--gold)">${fmt(lastResult.price)}</div></div>`;
+    } else if (lastResult) {
+      stage.innerHTML = `<div><div class="big-msg unsold">UNSOLD</div><div class="sub-msg">${esc(lastResult.playerName)}</div></div>`;
+    } else {
+      stage.innerHTML = `<div><div class="big-msg">Next lot coming up</div></div>`;
+    }
+  } else {
+    const p = lot.player;
+    stage.className = 'stage';
+    stage.innerHTML = `
+      <div class="player-card"><h2>${esc(p.name)}</h2>
+        <div class="role">${ROLE[p.role]}</div><div class="base">Base price ${fmt(p.basePrice)}</div></div>
+      <div class="bid-panel">
+        <div class="label">${lot.leaderId ? 'Current bid' : 'Opening price'}</div>
+        <div class="amount">${fmt(lot.currentBid)}</div>
+        <div class="leader" style="border-color:${lot.leaderColor || 'var(--line)'}">${lot.leaderName ? esc(lot.leaderName) : 'No bids yet'}</div>
+        <div id="timer"></div>
+      </div>`;
+  }
+
+  document.getElementById('ribbon').innerHTML = teams.map(t => `
+    <div class="tcard ${lot.leaderId === t.id ? 'lead' : ''}" style="--c:${t.color}">
+      <div><b>${esc(t.id)}</b><small>${t.status.count} players · ${t.status.wk}WK ${t.status.bowl}B</small></div>
+      <div style="text-align:right"><span class="purse">${fmt(t.purse)}</span>
+      <small>${t.status.ok ? '<span class="pill ok">squad ok</span>' : '<span class="pill warn">needs players</span>'}</small></div>
+    </div>`).join('');
+}
+
+function tick() {
+  const el = document.getElementById('timer');
+  if (!el) return;
+  const st = S.lot.status, ms = msLeft();
+  if (st === 'paused') { el.textContent = 'PAUSED'; el.className = 'dim'; }
+  else if (st === 'ended' || (st === 'live' && ms === 0)) { el.textContent = 'TIME UP'; el.className = 'low'; }
+  else { el.textContent = clock(ms); el.className = ms <= 5000 ? 'low' : ''; }
+}
+</script>
+</body></html>

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>IPL Auction - Team Console</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="team">
+<div id="login" class="card">
+  <h3>Team login</h3>
+  <input id="pass" class="field" placeholder="Passcode, e.g. MI-4821" autocomplete="off" autocapitalize="characters">
+  <div class="btns"><button class="btn gold" id="go" style="width:100%">Enter auction</button></div>
+</div>
+<div id="app" hidden></div>
+<script src="/socket.io/socket.io.js"></script>
+<script src="common.js"></script>
+<script>
+let me = null;
+const $ = id => document.getElementById(id);
+
+function login(passcode) {
+  socket.emit('team:login', { passcode }, r => {
+    if (!r.ok) { sessionStorage.removeItem('pass'); return toast(r.error); }
+    me = r.teamId; sessionStorage.setItem('pass', passcode);
+    $('login').hidden = true; $('app').hidden = false; if (S) render();
+  });
+}
+$('go').onclick = () => login($('pass').value);
+$('pass').onkeydown = e => e.key === 'Enter' && login($('pass').value);
+// After a dropped connection the server forgets the socket, so log in again automatically.
+socket.on('connect', () => { const p = sessionStorage.getItem('pass'); if (p) login(p); });
+
+function bid() {
+  socket.emit('bid', null, r => toast(r.ok ? `Bid placed: ${fmt(r.amount)}` : r.error, r.ok));
+}
+
+function render() {
+  if (!me) return;
+  const t = S.teams.find(x => x.id === me), lot = S.lot, live = lot.status === 'live';
+  const leading = lot.leaderId === me;
+  const can = live && !leading && t.purse >= lot.nextBid && t.squad.length < S.config.maxSquad;
+  let label = 'Waiting for next lot';
+  if (live) label = leading ? "You're leading" : t.purse < lot.nextBid ? 'Not enough purse' : `Bid ${fmt(lot.nextBid)}`;
+  else if (lot.status === 'paused') label = 'Paused';
+  else if (lot.status === 'ended') label = 'Bidding closed';
+  else if (S.mode === 'break') label = 'Break';
+
+  $('app').innerHTML = `
+    <div class="card"><div class="row"><div><h3>${esc(t.name)}</h3><div class="t-amount">${fmt(t.purse)}</div><div class="mute">purse left</div></div>
+      <span class="pill ${t.status.ok ? 'ok' : 'warn'}">${t.status.count}/${S.config.minSquad} players</span></div></div>
+    <div class="card">
+      ${lot.player ? `<h3>On the block</h3><div style="font-size:1.6rem;font-weight:800">${esc(lot.player.name)}</div>
+        <div class="mute">${ROLE[lot.player.role]} · base ${fmt(lot.player.basePrice)}</div>
+        <div class="row" style="margin-top:.7rem"><div><div class="mute">${lot.leaderId ? 'Current bid' : 'Opening'}</div><div class="t-amount">${fmt(lot.currentBid)}</div></div>
+        <div class="t-timer" id="tm"></div></div>
+        <div style="margin:.4rem 0 .9rem">${lot.leaderName ? 'Leader: <b>' + esc(lot.leaderName) + '</b>' : 'No bids yet'}</div>`
+        : `<h3>Auction</h3><div class="mute" style="margin-bottom:.8rem">${S.mode === 'break' ? esc(S.breakMessage) : 'No lot is live right now.'}</div>`}
+      <button class="btn gold bidbtn" ${can ? '' : 'disabled'} onclick="bid()">${label}</button>
+    </div>
+    <div class="card"><h3>My squad</h3>
+      <div style="margin-bottom:.5rem"><span class="pill ${t.status.wk >= S.config.minWK ? 'ok' : 'warn'}">WK ${t.status.wk}/${S.config.minWK}</span>
+      <span class="pill ${t.status.bowl >= S.config.minBowlers ? 'ok' : 'warn'}">Bowlers ${t.status.bowl}/${S.config.minBowlers}</span></div>
+      <ul class="plain">${t.squad.map(p => `<li><span>${esc(p.name)} <span class="mute">${p.role}</span></span><b>${fmt(p.price)}</b></li>`).join('') || '<li class="mute">No players yet</li>'}</ul></div>`;
+}
+
+function tick() {
+  const el = $('tm'); if (!el) return;
+  const ms = msLeft();
+  el.textContent = S.lot.status === 'paused' ? 'PAUSED' : S.lot.status === 'ended' ? 'UP' : clock(ms);
+  el.className = 't-timer' + (ms <= 5000 && S.lot.status === 'live' ? ' low' : '');
+}
+</script>
+</body></html>

@@ -1,0 +1,12 @@
+[
+  {"id":"MI","name":"Mumbai Indians","color":"#1b6fd1","passcode":"MI-4821"},
+  {"id":"CSK","name":"Chennai Super Kings","color":"#f2c200","passcode":"CSK-7359"},
+  {"id":"RCB","name":"Royal Challengers","color":"#d3202c","passcode":"RCB-2946"},
+  {"id":"KKR","name":"Kolkata Knight Riders","color":"#6b3fa0","passcode":"KKR-8137"},
+  {"id":"DC","name":"Delhi Capitals","color":"#2a5db0","passcode":"DC-5604"},
+  {"id":"SRH","name":"Sunrisers Hyderabad","color":"#f26b21","passcode":"SRH-3392"},
+  {"id":"RR","name":"Rajasthan Royals","color":"#e0488f","passcode":"RR-6715"},
+  {"id":"PBKS","name":"Punjab Kings","color":"#c8102e","passcode":"PBKS-1288"},
+  {"id":"GT","name":"Gujarat Titans","color":"#3a8fb7","passcode":"GT-9470"},
+  {"id":"LSG","name":"Lucknow Super Giants","color":"#2fb7c4","passcode":"LSG-5053"}
+]

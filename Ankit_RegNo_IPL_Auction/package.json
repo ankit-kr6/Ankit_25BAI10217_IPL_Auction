@@ -1,0 +1,12 @@
+{
+  "name": "ipl-auction",
+  "version": "1.0.0",
+  "description": "Live IPL Mega Auction platform - realtime board, team consoles, auctioneer desk",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "test": "node test/auction.test.js"
+  },
+  "engines": { "node": ">=18" },
+  "dependencies": { "express": "^4.19.2", "socket.io": "^4.7.5" }
+}

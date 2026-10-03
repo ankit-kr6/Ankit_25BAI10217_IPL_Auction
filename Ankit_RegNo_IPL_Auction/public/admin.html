@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>IPL Auction - Auctioneer Desk</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="admin">
+<div id="login" class="card" style="max-width:420px;margin:3rem auto">
+  <h3>Auctioneer login</h3>
+  <input id="pw" type="password" class="field" placeholder="Admin password">
+  <div class="btns"><button class="btn gold" id="go" style="width:100%">Open desk</button></div>
+</div>
+<div id="app" hidden>
+  <div class="grid2">
+    <div>
+      <div class="card" id="lotbox"></div>
+      <div class="card"><h3>Start a lot</h3>
+        <select id="pick" class="field"></select>
+        <div class="btns"><button class="btn gold" onclick="startPick()">Start selected</button>
+        <button class="btn" onclick="startNext()">Start next in queue</button></div></div>
+      <div class="card"><h3>Break</h3>
+        <input id="bmsg" class="field sm" placeholder="Message, e.g. Tea break - back in 10 min">
+        <div class="btns"><button class="btn" onclick="brk(true)">Start break</button><button class="btn green" onclick="brk(false)">Resume auction</button></div></div>
+    </div>
+    <div>
+      <div class="card"><h3>Settings</h3>
+        <div class="row"><span>Lot timer (seconds)</span><input id="secs" type="number" min="5" class="field sm" style="width:6rem"></div>
+        <div class="btns"><button class="btn" onclick="saveSecs()">Save</button>
+        <a class="btn" id="csv" href="#">Export squads (CSV)</a>
+        <button class="btn red" onclick="resetAll()">Reset auction</button></div></div>
+      <div class="card"><h3>Unsold players</h3><div id="unsold"></div></div>
+      <div class="card"><h3>Activity log</h3><div class="log" id="log"></div></div>
+    </div>
+  </div>
+</div>
+<script src="/socket.io/socket.io.js"></script>
+<script src="common.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+let pw = '', pickSig = '';
+
+function login(p) {
+  socket.emit('admin:login', { password: p }, r => {
+    if (!r.ok) { sessionStorage.removeItem('apw'); return toast(r.error); }
+    pw = p; sessionStorage.setItem('apw', p);
+    $('login').hidden = true; $('app').hidden = false;
+    $('csv').href = '/export/squads.csv?key=' + encodeURIComponent(p);
+    if (S) render();
+  });
+}
+$('go').onclick = () => login($('pw').value);
+$('pw').onkeydown = e => e.key === 'Enter' && login($('pw').value);
+socket.on('connect', () => { const p = sessionStorage.getItem('apw'); if (p) login(p); });
+
+const act = (ev, data) => socket.emit(ev, data || {}, r => r.ok ? toast('Done', true) : toast(r.error));
+const startPick = () => act('admin:startLot', { playerId: $('pick').value });
+const startNext = () => { const p = S.players.find(x => x.status === 'pending'); p ? act('admin:startLot', { playerId: p.id }) : toast('No players left in the queue'); };
+const brk = on => act('admin:break', { on, message: $('bmsg').value });
+const saveSecs = () => act('admin:config', { lotSeconds: $('secs').value });
+const resetAll = () => confirm('Reset the whole auction? Purses, squads and log will be wiped.') && act('admin:reset');
+
+function render() {
+  if (!pw) return;
+  const lot = S.lot, st = lot.status;
+  $('lotbox').innerHTML = lot.player
+    ? `<h3>Live lot · ${st}</h3><div style="font-size:1.8rem;font-weight:800">${esc(lot.player.name)} <span class="mute" style="font-size:1rem">${ROLE[lot.player.role]}</span></div>
+       <div class="row" style="margin-top:.5rem"><div><div class="t-amount">${fmt(lot.currentBid)}</div><div>${lot.leaderName ? 'Leader: <b>' + esc(lot.leaderName) + '</b>' : 'No bids yet'}</div></div><div class="t-timer" id="tm"></div></div>
+       <div class="btns">
+         <button class="btn" onclick="act('admin:pause')" ${st === 'live' ? '' : 'disabled'}>Pause</button>
+         <button class="btn" onclick="act('admin:resume')" ${st === 'paused' ? '' : 'disabled'}>Resume</button>
+         <button class="btn green" onclick="act('admin:sold')" ${lot.leaderId ? '' : 'disabled'}>SOLD</button>
+         <button class="btn red" onclick="act('admin:unsold')">UNSOLD</button></div>`
+    : `<h3>Live lot</h3><div class="mute">${S.mode === 'break' ? 'On break: ' + esc(S.breakMessage) : 'Idle - start a lot below.'}</div>`;
+
+  // rebuild the dropdown only when the pending list changes, so it doesn't close while you use it
+  const pending = S.players.filter(p => p.status === 'pending');
+  const sig = pending.map(p => p.id).join();
+  if (sig !== pickSig) {
+    const keep = $('pick').value; pickSig = sig;
+    $('pick').innerHTML = pending.map(p => `<option value="${p.id}">${esc(p.name)} · ${p.role} · ${fmt(p.basePrice)}</option>`).join('');
+    if (keep) $('pick').value = keep;
+  }
+  if (document.activeElement !== $('secs')) $('secs').value = S.config.lotSeconds;
+
+  const un = S.players.filter(p => p.status === 'unsold');
+  $('unsold').innerHTML = un.length ? un.map(p => `<div class="row" style="padding:.25rem 0"><span>${esc(p.name)}</span><button class="btn" onclick="act('admin:requeue',{playerId:${p.id}})">Re-queue</button></div>`).join('') : '<span class="mute">None</span>';
+  $('log').innerHTML = S.log.map(l => `<div><span class="mute">${new Date(l.t).toLocaleTimeString()}</span> ${esc(l.msg)}</div>`).join('');
+}
+
+function tick() {
+  const el = $('tm'); if (!el) return;
+  const st = S.lot.status, ms = msLeft();
+  el.textContent = st === 'paused' ? 'PAUSED' : st === 'ended' ? 'TIME UP' : clock(ms);
+  el.className = 't-timer' + (st === 'live' && ms <= 5000 ? ' low' : '');
+}
+</script>
+</body></html>
