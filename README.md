@@ -2,13 +2,12 @@
 
 | | |
 |---|---|
-| **Participant** | Ankit  *(add full name)* |
-| **Registration No.** | *(add)* |
-| **Date of Submission** | *(add)* |
-| **Repo name** | `[Your Name]_[Reg.No.]_IPL_Auction` |
-| **Demo video** | *(YouTube link)* |
-| **Live demo** | *(deployed URL, optional)* |
-
+| **Participant** | Ankit <your surname> |
+| **Registration No.** | 25BAI10217 |
+| **Date of Submission** | 3 October 2026 |
+| **Repo name** | `Ankit_25BAI10217_IPL_Auction` |
+| **Demo video** | (add YouTube link later) |
+| **Live demo** | (add Render link once deployed) |
 Realtime auction software for an in-person room: a projector **Live Board**, phone/laptop **Team Consoles**, and an **Auctioneer Desk**.
 
 ## Stack
